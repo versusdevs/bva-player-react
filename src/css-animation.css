@@ -1,0 +1,6 @@
+.bva-css-player { position: relative; width: 100%; height: 100%; overflow: hidden; isolation: isolate; }
+.bva-css-fit { position: absolute; left: 50%; top: 50%; transform-origin: center; }
+.bva-css-stage { position: relative; overflow: hidden; width: 100%; height: 100%; animation: bva-css-clock var(--bva-css-duration) linear both; animation-iteration-count: var(--bva-css-iterations); }
+.bva-css-stage, .bva-css-stage * { animation-play-state: var(--bva-css-state, running) !important; }
+.bva-css-player[data-reduced="true"] .bva-css-stage, .bva-css-player[data-reduced="true"] .bva-css-stage * { animation: none !important; }
+@keyframes bva-css-clock { from { opacity: 1; } to { opacity: 1; } }

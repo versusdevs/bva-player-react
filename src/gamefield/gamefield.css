@@ -1,0 +1,112 @@
+/*
+ * Fills the space the host gives it and centres the stage. The field measures
+ * this box to work out its own fit scale, so it must not be sized by content.
+ */
+.gamefield-root {
+  position: relative;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/*
+ * Sized in device-independent pixels at the fit scale rather than at the
+ * field's design size under a CSS `scale()`. Every child SVG then rasterizes
+ * at the size it is actually shown, which is what resolution-aware culling
+ * assumes.
+ */
+.gamefield-stage {
+  position: relative;
+  z-index: 0;
+  flex: none;
+  overflow: hidden;
+  background: #0b0d10;
+}
+
+.gamefield-draw {
+  position: absolute;
+  pointer-events: none;
+  /* Bound style/layout invalidation to each rig's box. Won't fix <use> fan-out
+     but may trim the recalc scope. */
+  contain: strict;
+}
+
+/*
+ * SmartBVA masters tick here: kept in the box tree (not `display: none`) so
+ * every `<use>` on the stage still resolves against a live rig.
+ */
+.gamefield-defs {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.gamefield-markers {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 999;
+  pointer-events: none;
+}
+
+.gamefield-markers circle {
+  fill: none;
+  stroke: #7fd1ff;
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+}
+
+/*
+ * Rastered SmartBVA: HTML copies driven by CSS transform. No `contain:
+ * strict` — clipping every copy each frame costs more than the smaller
+ * invalidation rect saves (same measurement as SmartBvaDraw).
+ */
+.gamefield-raster-draw {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.gamefield-raster-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  overflow: visible;
+}
+
+.gamefield-raster-part {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  display: block;
+  max-width: none;
+  /* Always present so o0 toggles only change the value, not the property. */
+  opacity: 1;
+}
+
+/*
+ * One Canvas2D surface per `type: "canvas"` asset (or a legacy
+ * z-contiguous run of canvas-flagged smartbva draws).
+ * No will-change: the bitmap changes every frame; promoting it would
+ * reintroduce the layer cost this path exists to drop.
+ */
+.gamefield-canvas-surface,
+.gamefield-canvas-band {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}

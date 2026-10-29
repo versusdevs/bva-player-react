@@ -1,0 +1,2 @@
+- Add usage examples with photos
+- Compare performance, speed, file sizes and compabilities with other players
