@@ -99,6 +99,26 @@ import { BvaLoader } from 'bva-player-react';
 
 The default indicator includes a status label and respects reduced-motion preferences. Keep custom loaders independent of the assets they are waiting for. Fetch errors remain the host's responsibility for `BvaPlayer`.
 
+### Host-controlled scene readiness and music
+
+`GameField` accepts `onReady`, called once its active scene rigs have initialized,
+and again when a different configuration becomes ready. Use `loader={null}` when
+the host already handles scene loading:
+
+```tsx
+<GameField config={config} rigs={rigs} loader={null} onReady={handleSceneReady}
+  bgEnabled={musicEnabled} bgPaused={inactive} sfxEnabled={soundsEnabled} />
+```
+
+`bgPaused` defaults to `false`. Pausing fades background music to silence over
+600 ms before stopping its sources; resuming restarts the remembered background
+loops and fades them in. Sound effects and the shared audio context stay active.
+The same fade helper is available from `bva-player-react/music-fade`.
+
+Keep shared runtime changes in this package and application rules, loadouts,
+and HUDs in the consuming application. Preserve the existing CSS animation
+and loader exports for consumers.
+
 ### Resolving layers without fetching again
 
 `loadAssetBundle` fetches each URL once and reuses the parsed JSON across skins. Call it with different `{ skin, variables }` and only the resolve step runs again. For a payload you already hold:

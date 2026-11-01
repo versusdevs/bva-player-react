@@ -1,3 +1,4 @@
+import { createMusicFade } from './musicFade'
 import type { SoundChannel } from './types'
 
 export interface FieldAudioPlayRequest {
@@ -18,6 +19,7 @@ export interface FieldAudio {
   stopAll: () => void
   setVolume: (volume: number) => void
   setEnabled: (bg: boolean, sfx: boolean) => void
+  setBackgroundPaused: (paused: boolean) => void
   preload: (urls: string[]) => void
 }
 
@@ -192,6 +194,7 @@ function noopAudio(): FieldAudio {
     stopAll() {},
     setVolume() {},
     setEnabled() {},
+    setBackgroundPaused() {},
     preload() {},
   }
 }
@@ -203,6 +206,7 @@ function noopAudio(): FieldAudio {
 export function createFieldAudio(opts: {
   volume: number
   bgEnabled: boolean
+  bgPaused?: boolean
   sfxEnabled: boolean
 }): FieldAudio {
   if (typeof window === 'undefined') return noopAudio()
@@ -215,6 +219,23 @@ export function createFieldAudio(opts: {
   const master = ctx.createGain()
   master.gain.value = clamp01(opts.volume)
   master.connect(ctx.destination)
+
+  const background = ctx.createGain()
+  background.connect(master)
+  let backgroundSuspended = opts.bgPaused ?? false
+  const fade = createMusicFade(ctx, background, {
+    initiallyPaused: backgroundSuspended,
+    onPause() {
+      backgroundSuspended = true
+      stopChannel('bg')
+    },
+    onResume() {
+      backgroundSuspended = false
+      for (const req of lastBeds.values()) {
+        if (req.channel === 'bg') playReq(req)
+      }
+    },
+  })
 
   let bgEnabled = opts.bgEnabled
   let sfxEnabled = opts.sfxEnabled
@@ -244,7 +265,7 @@ export function createFieldAudio(opts: {
   }
 
   function channelOn(channel: SoundChannel): boolean {
-    return channel === 'bg' ? bgEnabled : sfxEnabled
+    return channel === 'bg' ? bgEnabled && !backgroundSuspended : sfxEnabled
   }
 
   function playReq(req: FieldAudioPlayRequest): FieldAudioHandle {
@@ -267,7 +288,7 @@ export function createFieldAudio(opts: {
       lives.push(live)
 
       const attach = (buffer: AudioBuffer) => {
-        inner = startSource(ctx, master, buffer, {
+        inner = startSource(ctx, req.channel === 'bg' ? background : master, buffer, {
           volume: clamp01(req.volume),
           loop: req.loop,
           onEnded: () => removeLive(live.stop),
@@ -298,9 +319,13 @@ export function createFieldAudio(opts: {
       lastBeds.clear()
       for (const live of [...lives]) live.stop()
       unlockListeners.delete(replayBeds)
+      fade.dispose()
     },
     setVolume(volume) {
       master.gain.value = clamp01(volume)
+    },
+    setBackgroundPaused(paused) {
+      fade.setPaused(paused)
     },
     setEnabled(bg, sfx) {
       bgEnabled = bg

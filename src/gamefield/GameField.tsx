@@ -87,8 +87,10 @@ function initialStates(flat: FlatAsset[]): Record<string, StateEntry> {
 }
 
 export interface GameFieldProps {
-  /** Custom loading content, e.g. <MyLoader />. Null disables the indicator. */
+  /** Custom loading content. Omit for the default; null lets the host own loading. */
   loader?: ReactNode
+  /** Called when the scene rigs have finished initializing. */
+  onReady?: () => void
   config: GameFieldConfig
   /** Map of config `asset` names to baked file URLs and optional hooks. */
   rigs: Record<string, RigSource>
@@ -131,6 +133,8 @@ export interface GameFieldProps {
   clips?: Record<string, string>
   /** Looping beds (`channel: 'bg'`). Default `true`. */
   bgEnabled?: boolean
+  /** Fade background music out while idle, then pause it. */
+  bgPaused?: boolean
   /** One-shots and cues (`channel: 'sfx'`). Default `true`. */
   sfxEnabled?: boolean
   /** Master gain 0..1. Default `1`. */
@@ -147,13 +151,15 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
       selectedAssetId,
       selectedPlacementIndex,
       onFitChange,
+      onReady,
+      loader,
       devicePixelRatio: dprOverride,
       forceWeakDevice = false,
       clips,
       bgEnabled = true,
+      bgPaused = false,
       sfxEnabled = true,
       volume = 1,
-      loader,
     },
     ref,
   ) {
@@ -221,6 +227,7 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
       audioRef.current = createFieldAudio({
         volume,
         bgEnabled,
+        bgPaused,
         sfxEnabled,
       })
     }
@@ -325,6 +332,10 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
     useEffect(() => {
       audio.setVolume(volume)
     }, [audio, volume])
+
+    useEffect(() => {
+      audio.setBackgroundPaused(bgPaused)
+    }, [audio, bgPaused])
 
     useEffect(() => {
       audio.setEnabled(bgEnabled, sfxEnabled)
@@ -608,7 +619,6 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
       }
     }
 
-    // Empty fields and fields without mounted rigs have no rig load to await.
     const loading = quality.phase === 'load' && flat.some(({ asset }) => {
       if (!isActive(asset) || !drawsOnWeak(asset)) return false
       if (asset.type === 'bva') return true
@@ -616,6 +626,11 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
         (placement, i) => placementDrawsOnWeak(asset, placement, i),
       )
     })
+    const onReadyRef = useRef(onReady)
+    onReadyRef.current = onReady
+    useEffect(() => {
+      if (!loading) onReadyRef.current?.()
+    }, [loading, config])
 
     return (
       <div className="gamefield-root" ref={fitRef} aria-busy={loading}>
@@ -694,7 +709,6 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
                   }
                 }
                 const masterProps = {
-                  key: variant.masterId,
                   config: asset,
                   masterId: variant.masterId,
                   rig: rigs[asset.asset],
@@ -723,13 +737,14 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
                 }
                 const quality = qualityOf(asset.id)
                 if (quality.canvas) {
-                  return <CanvasRigMaster {...masterProps} />
+                  return <CanvasRigMaster key={variant.masterId} {...masterProps} />
                 }
                 if (quality.rastered) {
-                  return <RasteredSmartBvaMaster {...masterProps} />
+                  return <RasteredSmartBvaMaster key={variant.masterId} {...masterProps} />
                 }
                 return (
                   <SmartBvaMaster
+                    key={variant.masterId}
                     {...masterProps}
                     fieldSize={fieldSize}
                     cullScale={culling.cullScale}

@@ -17,7 +17,11 @@
       "import": "./src/CssAnimationPlayer.tsx",
       "default": "./src/CssAnimationPlayer.tsx"
     },
-    "./css-animation.css": "./src/css-animation.css"
+    "./css-animation.css": "./src/css-animation.css",
+    "./music-fade": {
+      "types": "./src/gamefield/musicFade.ts",
+      "default": "./src/gamefield/musicFade.ts"
+    }
   },
   "files": [
     "src",
