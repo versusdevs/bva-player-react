@@ -67,6 +67,17 @@ export type { BvaLoaderProps } from './BvaLoader';
 export { BvaPlayer } from './BvaPlayer';
 export type { BvaPlayerHandle, BvaPlayerProps } from './BvaPlayer';
 
+export { createHapticFeedback } from './haptics';
+export type {
+  HapticFeedback,
+  HapticFeedbackOptions,
+  HapticInput,
+  HapticPattern,
+  HapticPreset,
+  HapticTriggerOptions,
+  HapticVibration,
+} from './haptics';
+
 export { GameField } from './gamefield/GameField';
 export type { GameFieldProps } from './gamefield/GameField';
 export { BvaAsset } from './gamefield/BvaAsset';

@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { BvaAsset } from './BvaAsset'
 import { BvaLoadingOverlay } from '../BvaLoader'
+import { createHapticFeedback, type HapticFeedback } from '../haptics'
 import { cullScaleFor, cullTierFor } from './cullTier'
 import { setForceWeak, setQualityConfig } from './fieldQuality'
 import { createFieldAudio, type FieldAudio } from './fieldAudio'
@@ -92,6 +93,8 @@ export interface GameFieldProps {
   /** Called when the scene rigs have finished initializing. */
   onReady?: () => void
   config: GameFieldConfig
+  /** Camera rectangle in scene coordinates. Omit to retain the original framing. */
+  viewport?: { x: number; y: number; w: number; h: number }
   /** Map of config `asset` names to baked file URLs and optional hooks. */
   rigs: Record<string, RigSource>
   /** Live skin edits from the host, keyed by asset id. */
@@ -137,6 +140,8 @@ export interface GameFieldProps {
   bgPaused?: boolean
   /** One-shots and cues (`channel: 'sfx'`). Default `true`. */
   sfxEnabled?: boolean
+  /** Mobile haptics, independent of sound settings. Default `true`. */
+  hapticsEnabled?: boolean
   /** Master gain 0..1. Default `1`. */
   volume?: number
 }
@@ -145,6 +150,7 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
   function GameField(
     {
       config,
+      viewport,
       rigs,
       skinOverrides,
       slots,
@@ -159,6 +165,7 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
       bgEnabled = true,
       bgPaused = false,
       sfxEnabled = true,
+      hapticsEnabled = true,
       volume = 1,
     },
     ref,
@@ -171,7 +178,8 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
     const quality = useFieldQuality(config.id)
     const hideWeak =
       forceWeakDevice || (quality.phase === 'run' && quality.weak)
-    const { ref: fitRef, fit } = useFitScale(config.size)
+    const camera = viewport ?? { x: 0, y: 0, ...config.size }
+    const { ref: fitRef, fit } = useFitScale(camera)
     const displayDpr = useDevicePixelRatio()
     const dpr =
       dprOverride != null && Number.isFinite(dprOverride) && dprOverride > 0
@@ -222,6 +230,24 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
     >({})
     const seqRef = useRef(0)
     const playbackRef = useRef<Record<string, RigPlayback>>({})
+    const hapticsRef = useRef<HapticFeedback | null>(null)
+    useEffect(() => {
+      const haptics = createHapticFeedback()
+      hapticsRef.current = haptics
+      return () => {
+        haptics.destroy()
+        hapticsRef.current = null
+      }
+    }, [config.id])
+    useEffect(() => {
+      hapticsRef.current?.setEnabled(hapticsEnabled)
+    }, [hapticsEnabled, config.id])
+    const playHaptic = useCallback<HapticFeedback['play']>((input, options) => {
+      hapticsRef.current?.play(input, options)
+    }, [])
+    const stopHaptics = useCallback(() => {
+      hapticsRef.current?.stop()
+    }, [])
     const audioRef = useRef<FieldAudio | null>(null)
     if (audioRef.current == null) {
       audioRef.current = createFieldAudio({
@@ -382,8 +408,10 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
         },
         playSound,
         stopSound,
+        playHaptic,
+        stopHaptics,
       }),
-      [setAssetState, setAssetSkin, states, playSound, stopSound],
+      [setAssetState, setAssetSkin, states, playSound, stopSound, playHaptic, stopHaptics],
     )
 
     const isActive = useCallback(
@@ -636,8 +664,18 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
       <div className="gamefield-root" ref={fitRef} aria-busy={loading}>
       <div
         className="gamefield-stage"
-        style={{ width: fieldSize.w * fit, height: fieldSize.h * fit }}
+        style={{ width: camera.w * fit, height: camera.h * fit }}
       >
+        <div
+          className="gamefield-scene"
+          style={{
+            position: 'absolute',
+            left: -camera.x * fit,
+            top: -camera.y * fit,
+            width: fieldSize.w * fit,
+            height: fieldSize.h * fit,
+          }}
+        >
         <div className="gamefield-defs" aria-hidden="true">
           {flat.flatMap((node) => {
             const { asset } = node
@@ -1055,6 +1093,7 @@ export const GameField = forwardRef<GameFieldHandle, GameFieldProps>(
             ))}
           </svg>
         ) : null}
+        </div>
       </div>
       {loading && <BvaLoadingOverlay>{loader}</BvaLoadingOverlay>}
       </div>

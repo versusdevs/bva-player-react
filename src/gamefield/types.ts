@@ -1,3 +1,5 @@
+import type { HapticFeedback } from '../haptics'
+
 /**
  * GameField config shape. A gamefield is a plain JSON scene: a canvas size
  * plus a tree of assets that each map a logical `state` (the name game
@@ -353,6 +355,8 @@ export interface GameFieldConfig {
   id: string
   name: string
   size: { w: number; h: number }
+  /** Available background beyond the original scene, in scene coordinates. */
+  artworkBounds?: { x: number; y: number; w: number; h: number }
   /** Timing programs count in these frames. Defaults to each motion's own fps. */
   fps?: number
   /** Cap on field-level pose-skip N. Defaults to {@link DEFAULT_MAX_N}. */
@@ -418,4 +422,8 @@ export interface GameFieldHandle {
   playSound: (id: string, cue?: string) => void
   /** Stop looping / in-flight clips for this sound asset, including pending cues. */
   stopSound: (id: string) => void
+  /** Play mobile haptics from a user gesture, independently of audio mute. */
+  playHaptic: HapticFeedback['play']
+  /** Cancel the current pattern, including any delayed impacts. */
+  stopHaptics: () => void
 }

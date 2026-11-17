@@ -507,3 +507,50 @@ Paint suffixes (version 3), glued with no comma in fixed order `[o…][f…][s�
 
 - Opacity: `827.41,833.24,.27,0,0,.27o.23` or `o.5` when only opacity changes.
 - Fill / stroke: uppercase hex, no `#` (6 digits, or 3 when compressible) — `…o.23fF1F1F1`, `fABC`, `o.5s000`. When present, the player expands to `#RRGGBB` and writes onto shape children under the part group. Absent channels leave the static artwork alone.
+
+### Scene camera and extended artwork
+
+`GameField` accepts an optional `viewport={{ x, y, w, h }}` in the original scene's
+coordinate system. The camera is fitted into the host's box; asset positions,
+rig canvases, culling scales, and HTML slots remain in scene coordinates. Omit it
+to use `{ x: 0, y: 0, ...config.size }`, preserving existing consumers.
+
+`GameFieldConfig.artworkBounds` optionally describes the background area available
+outside the original frame. A host can use a wider or taller camera within those
+bounds to reveal background instead of cropping the original scene. The host
+chooses the camera and supplies a container with the same aspect ratio. Studio
+uses this for its screen presets and shaded extension guide.
+
+
+### Mobile haptic feedback
+
+The core exports `createHapticFeedback()` for reuse outside React. It wraps
+[WebHaptics](https://github.com/lochie/web-haptics), the library behind
+[haptics.lochie.me](https://haptics.lochie.me): Android uses `navigator.vibrate`,
+and iOS uses the hidden native switch fallback. Unsupported browsers skip
+physical feedback. Browser and device haptic settings still apply.
+
+```ts
+import { createHapticFeedback } from 'bva-player-react'
+
+const haptics = createHapticFeedback()
+// Call directly in a click/pointer handler to preserve the iOS user gesture.
+haptics.play('heavy')
+haptics.play([
+  { duration: 35, intensity: 1 },
+  { delay: 500, duration: 55, intensity: 1 },
+])
+haptics.stop()             // also cancels delayed impacts
+haptics.setEnabled(false)  // stops feedback; future plays are ignored
+haptics.destroy()          // release resources when the owner unmounts
+```
+
+`play` accepts WebHaptics presets, a duration in milliseconds, an alternating
+on/off `number[]`, or vibration objects with `duration`, `delay`, and `intensity`.
+Starting a pattern replaces the previous one. Construction is safe during SSR;
+DOM resources are created lazily. Hiding the page cancels the current pattern.
+
+`GameField` owns a controller and exposes `field.playHaptic(pattern)` and
+`field.stopHaptics()` through its ref. Set `hapticsEnabled={false}` to disable it;
+it is enabled by default and independent of `bgEnabled`, `sfxEnabled`, and
+`volume`. Field changes and unmounts stop feedback and remove the iOS switch.
